@@ -10,3 +10,4 @@ type Cell = {
 }
 
 type CellClickAction = 'PRESS' | 'CHECK' | 'FLAG' | 'CASCADE'
+type GameState = 'PLAYING' | 'LOST' | 'WON'
