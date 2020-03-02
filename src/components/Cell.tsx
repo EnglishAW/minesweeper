@@ -2,6 +2,12 @@ import { h } from 'preact'
 import { css } from 'emotion'
 import { handleCellClickType } from './GameContainer'
 import { useState } from 'preact/hooks/src'
+import {
+    ColorRed,
+    ColorGreyDark,
+    ColorGreenBlue,
+    ColorGreenDark,
+} from '../assets/variables'
 
 export interface CellProps {
     isMine: boolean
@@ -12,6 +18,12 @@ export interface CellProps {
     position: { x: number; y: number }
     onClick: handleCellClickType
 }
+const CELL_GAP = 2
+// Colors
+const GROUND_COLOR = ColorGreenDark
+const FLAG_COLOR = ColorGreenBlue
+const BOMB_COLOR = ColorRed
+const CHECKED_COLOR = ColorGreyDark
 
 // Render the Cell based on the array from the GameContainer
 export const Cell = (props: CellProps) => {
@@ -52,16 +64,16 @@ const wrapperClass = (size, isChecked, isFlag, isMine) => css`
     display: flex;
     justify-content: center;
     align-items: center;
-    width: ${size - 1};
-    height: ${size - 1};
-    margin: 1px 1px 0 0;
+    width: ${size - CELL_GAP};
+    height: ${size - CELL_GAP};
+    margin: ${CELL_GAP}px ${CELL_GAP}px 0 0;
     background-color: ${isMine && isChecked
-        ? '#F00'
+        ? BOMB_COLOR
         : isChecked
-        ? '#1b1e2b'
+        ? CHECKED_COLOR
         : isFlag
-        ? '#f0f'
-        : '#FFCC63'};
+        ? FLAG_COLOR
+        : GROUND_COLOR};
     box-sizing: border-box;
     cursor: pointer;
 

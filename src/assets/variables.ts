@@ -1,0 +1,6 @@
+export const ColorGreen = '#64CEAA'
+export const ColorGreenDark = '#9CCC64'
+export const ColorGreenBlue = '#007278'
+export const ColorGreyDark = '#1b1e2b'
+export const ColorYellow = '#FFCC63'
+export const ColorRed = '#F00'

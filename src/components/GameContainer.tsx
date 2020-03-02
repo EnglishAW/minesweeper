@@ -1,6 +1,7 @@
 import { h } from 'preact'
 import { useState, useEffect, useRef } from 'preact/hooks'
 import { GameBoard } from './GameBoard'
+import { Splash } from './Splash'
 import { GameOptions } from './GameOptions'
 import { css } from 'emotion'
 
@@ -11,6 +12,7 @@ const WIDTH = 30
 const HEIGHT = 16
 const CELL_SIZE = 20
 const MINE_COUNT = 50
+const MINE = 9
 
 export type handleCellClickType = (
     position: PositionType,
@@ -25,40 +27,54 @@ const makeEmptyCell = (): Cell => ({
 
 export const GameContainer = () => {
     const initialCellState = generateEmptyBoardArray(WIDTH, HEIGHT)
+    const [gameState, setGameState] = useState<GameState>('PLAYING')
     const [cellState, setCellState]: [Cell[][], any] = useState(
         initialCellState
     )
 
-    useEffect(() => {
-        const setMinePosition = () => {
+    const resetGame = () => {
+        const setMinePosition = array => {
+            const updateCells = array.slice()
             for (let i = 0; i < MINE_COUNT; i++) {
                 const mine_x = Math.floor(Math.random() * WIDTH)
                 const mine_y = Math.floor(Math.random() * HEIGHT)
-                const updateCells = cellState.slice()
-                updateCells[mine_y][mine_x].value = 9
-                setCellState(updateCells)
+                updateCells[mine_y][mine_x].value = MINE
             }
+            return updateCells
         }
-        const setNumberValue = () => {
-            const updateCells = cellState.map((row, y) => {
+        const setNumberValue = array => {
+            return array.map((row, y) => {
                 return row.map((cell, x) => {
-                    return cell.value !== 9
+                    return cell.value !== MINE
                         ? {
                               ...cell,
-                              value: getMineCount(cellState, {
+                              value: getMineCount(array, {
                                   x,
                                   y,
-                              }) as CellValue,
+                              }),
                           }
                         : cell
                 })
             })
-            setCellState(updateCells)
         }
         console.log('init mines')
-        setMinePosition()
-        setNumberValue()
+        const newGameBoard = generateEmptyBoardArray(WIDTH, HEIGHT)
+        console.log(newGameBoard)
+        setCellState(setNumberValue(setMinePosition(newGameBoard)))
+    }
+
+    useEffect(() => {
+        resetGame()
     }, [])
+
+    useEffect(() => {
+        if (gameState === 'LOST') {
+            setTimeout(() => {
+                resetGame()
+                setGameState('PLAYING')
+            }, 3000)
+        }
+    }, [gameState])
 
     /* * *  Event Handlers * * */
 
@@ -69,18 +85,33 @@ export const GameContainer = () => {
 
     //If paused then toggle the clicked cell living or dead
     const handleCellClick: handleCellClickType = (position, action) => {
-        // Mutable process :( refactor with map
+        if (gameState !== 'PLAYING') {
+            return
+        }
         const updateCells = cellState.slice()
-        const clickedCell = updateCells[position.y][position.x]
+        const { x, y } = position
+        const clickedCell = updateCells[y][x]
         const isFlag = clickedCell.isFlag
-        if (action === 'CHECK') {
-            // updateCells[position.y][position.x].isChecked = true
-
-            const t = checkCell(cellState, position)
-            setCellState(t)
+        if (action === 'CHECK' && !cellState[y][x].isFlag) {
+            // updateCells[y][x].isChecked = true
+            if (cellState[y][x].value === MINE) {
+                console.log('GAME OVER')
+                setCellState(revealMines(cellState))
+                setGameState('LOST')
+            } else {
+                const checkedCells = checkCell(cellState, position)
+                console.log(checkedCells)
+                if (isMineTriggered(checkedCells)) {
+                    console.log('GAME OVER')
+                    setCellState(revealMines(cellState))
+                    setGameState('LOST')
+                } else {
+                    setCellState(checkedCells)
+                }
+            }
         }
         if (action === 'FLAG') {
-            updateCells[position.y][position.x].isFlag = !isFlag
+            updateCells[y][x].isFlag = !isFlag
             setCellState(updateCells)
         }
     }
@@ -98,7 +129,8 @@ export const GameContainer = () => {
                 cellState={cellState}
                 onCellClick={handleCellClick}
             />
-            <GameOptions onClear={handleClear} />
+            <Splash text="GAME OVER" open={gameState === 'LOST'} />
+            {/* <GameOptions onClear={handleClear} /> */}
         </div>
     )
 }
@@ -109,7 +141,10 @@ const generateEmptyBoardArray = (width: number, height: number) => {
     )
 }
 
-const getMineCount = (array, currentIndex: { x: number; y: number }) => {
+const getMineCount = (
+    array,
+    currentIndex: { x: number; y: number }
+): CellValue => {
     const { x, y } = currentIndex
     const row_length = array.length
     const col_length = array[0].length
@@ -120,7 +155,7 @@ const getMineCount = (array, currentIndex: { x: number; y: number }) => {
             x >= 0 &&
             y < row_length &&
             y >= 0 &&
-            array[y][x].value === 9
+            array[y][x].value === MINE
         )
     }
 
@@ -159,10 +194,10 @@ const getMineCount = (array, currentIndex: { x: number; y: number }) => {
 
     //console.log(neighborCount)
 
-    return neighborCount
+    return neighborCount as CellValue
 }
 
-const checkCell = (arr, currentIndex: { x: number; y: number }) => {
+const checkCell = (arr, currentIndex: { x: number; y: number }): Cell[] => {
     const array = arr.slice()
     const { x, y } = currentIndex
 
@@ -189,7 +224,6 @@ const checkCell = (arr, currentIndex: { x: number; y: number }) => {
                     return position !== currentIndex && !cell.isChecked
                         ? checkCell(mapArray, position)[position.y][position.x]
                         : { ...cell, isChecked: true }
-                    // return { ...cell, isChecked: true }
                 },
                 array,
                 currentIndex
@@ -216,6 +250,17 @@ const checkCell = (arr, currentIndex: { x: number; y: number }) => {
     }
 
     return array
+}
+
+const isMineTriggered = array => {
+    const checkedMines = array.filter(row => {
+        const checkedMinesInRow = row.filter(
+            cell => cell.isChecked && cell.value === MINE
+        )
+        return checkedMinesInRow.length > 0
+    })
+
+    return checkedMines.length > 0
 }
 
 const mapSelfAndNeighbors = (
@@ -282,6 +327,14 @@ const mapSelfAndNeighbors = (
     //console.log(neighborCount)
 
     return array
+}
+
+const revealMines = array => {
+    return array.map(row => {
+        return row.map(cell => {
+            return cell.value === MINE ? { ...cell, isChecked: true } : cell
+        })
+    })
 }
 
 const directionMap = {
